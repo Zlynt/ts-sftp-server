@@ -3,7 +3,7 @@
 Implement a simple SFTP Server using TypeScript and Node.js.
 
 > **Warning**
-> While the server is working, not all FTP methods are implemented.
+> Not all FTP methods are implemented.
 
 <br/>
 
@@ -39,7 +39,7 @@ let sftpServer = new SFTPServer({
 });
 ```
 
-3) Implement the events
+3) Implement the following events
 
 |Event                |Description                                                                                |
 |---------------------|-------------------------------------------------------------------------------------------|
