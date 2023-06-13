@@ -1,6 +1,6 @@
 {
   "name": "ts-sftp-server",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "NodeJS SFTP Server using TypeScript",
   "main": "lib/index.js",
   "author": "Zlynt <contact@zlyntlab.com> (https://zlyntlab.com)",
@@ -9,7 +9,8 @@
     "build": "rimraf lib && tsc",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
     "lint": "tslint -p tsconfig.json",
-    "test": "npm run build && nodemon test/index.ts"
+    "test": "npm run build && nodemon test/index.ts",
+    "dev": "nodemon test/index.ts"
   },
   "repository": {
     "type": "git",

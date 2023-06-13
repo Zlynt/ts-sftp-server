@@ -34,6 +34,12 @@ let sftpServer = new SFTPServer({
   },
 });
 
+// Example on how to build a plugin
+sftpServer.use((req, res, next) => {
+  console.log('Intercepted command:', req.command);
+  next();
+});
+
 // Check if IP can access this server (in this example we only allow localhost)
 sftpServer.on('Connection', (req, res) => {
   // Allow only 127.0.0.1 to connect to this server

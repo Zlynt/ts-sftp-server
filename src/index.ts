@@ -52,6 +52,7 @@ export default class SFTPServer extends EventEmitter {
   #printError: ConsolePrintMethod;
   #printSuccess: ConsolePrintMethod;
   #authMethods: Array<AuthMethodType>;
+  #midlewares: Array<(req: any, res: any, next: () => void) => void>;
 
   constructor({ port, privateKeyFilePath, printMethods, authMethods }: SftpServerProps) {
     super();
@@ -63,6 +64,8 @@ export default class SFTPServer extends EventEmitter {
     // #endregion
 
     // #region Initialize parameters
+    // Initialize midleware
+    this.#midlewares = [];
     // Server Port
     this.#port = port;
     // Auth methods
@@ -124,6 +127,23 @@ export default class SFTPServer extends EventEmitter {
     // #endregion
   }
 
+  use(midleware: (req: any, res: any, next: any) => void) {
+    this.#midlewares.push(midleware);
+  }
+
+  #executeMidleware(req: any, res: any, _this: SFTPServer, eventString: string) {
+    for (let i = 0; i < this.#midlewares.length; i += 1) {
+      let stopCycle = true;
+      const next = () => {
+        stopCycle = false;
+      };
+      req.command = eventString;
+      this.#midlewares[i](req, res, next);
+      if (stopCycle) return;
+    }
+    _this.emit(eventString, req, res);
+  }
+
   #handleSFTPSession(
     _this: SFTPServer,
     remoteInfo: RemoteInfo,
@@ -165,7 +185,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('RENAME', req, res);
+      this.#executeMidleware(req, res, _this, 'RENAME');
     });
 
     // Remove file
@@ -194,7 +214,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('REMOVE', req, res);
+      this.#executeMidleware(req, res, _this, 'REMOVE');
     });
 
     // Create directory
@@ -223,7 +243,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('MKDIR', req, res);
+      this.#executeMidleware(req, res, _this, 'MKDIR');
     });
 
     // Remove directory
@@ -252,7 +272,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('RMDIR', req, res);
+      this.#executeMidleware(req, res, _this, 'RMDIR');
     });
 
     // OpenDir Request - Open directory pointer
@@ -289,7 +309,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('OPENDIR', req, res);
+      this.#executeMidleware(req, res, _this, 'OPENDIR');
     });
 
     session.on('READDIR', (reqId: number, handleID: string) => {
@@ -388,7 +408,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('READDIR', req, res);
+      this.#executeMidleware(req, res, _this, 'READDIR');
     });
 
     session.on('CLOSE', async (reqId: number, handleID: string) => {
@@ -485,7 +505,7 @@ export default class SFTPServer extends EventEmitter {
           return;
         },
       };
-      _this.emit('REALPATH', req, res);
+      this.#executeMidleware(req, res, _this, 'REALPATH');
     });
 
     const STAT = (reqId: number, path: string, typeOfStat: 'LSTAT' | 'STAT' | 'FSTAT') => {
@@ -556,7 +576,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit(typeOfStat, req, res);
+      this.#executeMidleware(req, res, _this, typeOfStat);
     };
     // STAT - Request information about file/folder by path name
     session.on('STAT', (reqId: number, path: string) => {
@@ -675,7 +695,7 @@ export default class SFTPServer extends EventEmitter {
           session.handle(reqId, Buffer.from(currentHandleID.toString()));
           return;
         };
-        _this.emit('READ', req, res);
+        this.#executeMidleware(req, res, _this, 'READ');
       } else if (operationType === 'WRITE') {
         res.receiveFile = (filePath: string) => {
           // Assign handle to current opened directory
@@ -694,7 +714,7 @@ export default class SFTPServer extends EventEmitter {
           session.handle(reqId, Buffer.from(currentHandleID.toString()));
           return;
         };
-        _this.emit('WRITE', req, res);
+        this.#executeMidleware(req, res, _this, 'WRITE');
       }
     });
     session.on('READ', async (reqId: number, handleID: Buffer, offset: number, len: number) => {
@@ -765,7 +785,7 @@ export default class SFTPServer extends EventEmitter {
         },
       };
 
-      _this.emit('SETSTAT', req, res);
+      this.#executeMidleware(req, res, _this, 'SETSTAT');
     });
     session.on('SYMLINK', (reqId: number, targetPath: string, linkPath: string) => {
       this.#printWarning(
@@ -811,26 +831,24 @@ export default class SFTPServer extends EventEmitter {
       };
       if (ctx.method === 'password') receivedParams.password = ctx.password;
 
-      const isAuthEventDefined = _this.emit(
-        'Auth',
-        {
-          ...remoteInfo,
-          method: ctx.method,
-          credentials: receivedParams,
+      let req = {
+        ...remoteInfo,
+        method: ctx.method,
+        credentials: receivedParams,
+      };
+      let res = {
+        allow: () => {
+          username = receivedParams.username;
+          ctx.accept();
+          return;
         },
-        {
-          allow: () => {
-            username = receivedParams.username;
-            ctx.accept();
-            return;
-          },
-          deny: () => {
-            ctx.reject(_this.#authMethods, false);
-            return;
-          },
+        deny: () => {
+          ctx.reject(_this.#authMethods, false);
+          return;
         },
-      );
-      if (isAuthEventDefined === false) throw new Error('Auth Event is not Defined.');
+      };
+
+      this.#executeMidleware(req, res, _this, 'Auth');
     });
     // On Client requesting sftp session
     client.on('session', (accept: ssh2.AcceptConnection<ssh2.Session>, reject: ssh2.RejectConnection) => {
