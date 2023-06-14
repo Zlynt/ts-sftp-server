@@ -1,6 +1,6 @@
 {
   "name": "ts-sftp-server",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "NodeJS SFTP Server using TypeScript",
   "main": "lib/index.js",
   "author": "Zlynt <contact@zlyntlab.com> (https://zlyntlab.com)",
