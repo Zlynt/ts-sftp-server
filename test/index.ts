@@ -278,6 +278,11 @@ sftpServer.on('STAT', (req, res) => {
 sftpServer.on('FSTAT', (req, res) => {
   STAT(req, res, 'FSTAT');
 });
+
+// On user disconect
+sftpServer.on('DISCONNECT', (req) => {
+  console.log('User Disconnect:', req.credentials.username);
+});
 //#endregion
 
 // Start the server on port 3000

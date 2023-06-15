@@ -132,7 +132,15 @@ export default class SFTPServer extends EventEmitter {
   }
 
   #executeMidleware(req: any, res: any, _this: SFTPServer, eventString: string) {
-    for (let i = 0; i < this.#midlewares.length; i += 1) {
+    const midlewareLength = this.#midlewares.length;
+    let midlewarePointer = 0;
+    const next = () => {
+      midlewarePointer += 1;
+      if (midlewarePointer >= midlewareLength) _this.emit(eventString, req, res);
+      else this.#midlewares[midlewarePointer](req, res, next);
+    };
+    this.#midlewares[midlewarePointer](req, res, next);
+    /*for (let i = 0; i < this.#midlewares.length; i += 1) {
       let stopCycle = true;
       const next = () => {
         stopCycle = false;
@@ -140,8 +148,7 @@ export default class SFTPServer extends EventEmitter {
       req.command = eventString;
       this.#midlewares[i](req, res, next);
       if (stopCycle) return;
-    }
-    _this.emit(eventString, req, res);
+    }*/
   }
 
   #handleSFTPSession(
@@ -299,6 +306,10 @@ export default class SFTPServer extends EventEmitter {
           };
           session.handle(reqId, Buffer.from(currentHandleID.toString()));
         },
+        fail: () => {
+          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.FAILURE);
+          return;
+        },
         deny: () => {
           session.status(reqId, ssh2.utils.sftp.STATUS_CODE.PERMISSION_DENIED);
           return;
@@ -394,12 +405,12 @@ export default class SFTPServer extends EventEmitter {
           }
           return;
         },
-        deny: () => {
-          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.PERMISSION_DENIED);
+        fail: () => {
+          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.FAILURE);
           return;
         },
-        failure: () => {
-          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.FAILURE);
+        deny: () => {
+          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.PERMISSION_DENIED);
           return;
         },
         notFound: () => {
@@ -496,6 +507,10 @@ export default class SFTPServer extends EventEmitter {
           ]);
           return;
         },
+        fail: () => {
+          session.status(reqId, ssh2.utils.sftp.STATUS_CODE.FAILURE);
+          return;
+        },
         deny: () => {
           session.status(reqId, ssh2.utils.sftp.STATUS_CODE.PERMISSION_DENIED);
           return;
@@ -562,11 +577,11 @@ export default class SFTPServer extends EventEmitter {
           send(currType, permissions, uid, gid, size, atime, mtime);
           return;
         },
-        failure: () => {
+        fail: () => {
           session.status(reqId, ssh2.utils.sftp.STATUS_CODE.FAILURE);
           return;
         },
-        denied: () => {
+        deny: () => {
           session.status(reqId, ssh2.utils.sftp.STATUS_CODE.PERMISSION_DENIED);
           return;
         },
@@ -858,6 +873,17 @@ export default class SFTPServer extends EventEmitter {
 
         _this.#handleSFTPSession(_this, remoteInfo, client, info, accept(), username);
       });
+    });
+
+    client.on('close', () => {
+      console.log('Disconected:', username);
+      let req = {
+        ...remoteInfo,
+        credentials: {
+          username,
+        },
+      };
+      this.#executeMidleware(req, {}, _this, 'DISCONNECT');
     });
   }
 
