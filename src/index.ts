@@ -134,6 +134,10 @@ export default class SFTPServer extends EventEmitter {
   #executeMidleware(req: any, res: any, _this: SFTPServer, eventString: string) {
     const midlewareLength = this.#midlewares.length;
     let midlewarePointer = 0;
+
+    // Grant current command is always passed
+    req.command = eventString;
+    
     const next = () => {
       midlewarePointer += 1;
       if (midlewarePointer >= midlewareLength) _this.emit(eventString, req, res);
