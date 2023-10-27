@@ -852,7 +852,7 @@ export default class SFTPServer extends EventEmitter {
         credentials: receivedParams,
       };
       let res = {
-        allow: (customUsername: string) => {
+        allow: (customUsername?: string) => {
           username = customUsername? customUsername : receivedParams.username;
           ctx.accept();
           return;
